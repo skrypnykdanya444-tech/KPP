@@ -34,7 +34,7 @@ import java.util.List;
  */
 public class MainApp extends Application {
 
-    private final HttpClient api = new HttpClient();
+    private final HttpTransportClient api = new HttpTransportClient();
 
     private final ObjectMapper mapper = new ObjectMapper()
             .registerModule(new JavaTimeModule())
@@ -558,18 +558,44 @@ public class MainApp extends Application {
         }
     }
 
-    /** Переводить інцидент до наступного стану життєвого циклу. */
+    /**
+     * Переводить інцидент до наступного стану життєвого циклу.
+     *
+     * <p>Клієнт лише визначає бажаний стан за життєвим циклом і передає
+     * його серверу. Допустимість переходу перевіряє Service.</p>
+     */
     private void handleAdvanceIncidentState() {
         if (selectedIncidentId == null) {
             showError("Виберіть запис", "Оберіть інцидент зі списку.");
             return;
         }
+        Incident selected = incidentTable.getSelectionModel().getSelectedItem();
+        if (selected == null || selected.getState() == null) {
+            showError("Виберіть запис", "Оберіть інцидент зі списку.");
+            return;
+        }
+        IncidentState next = nextState(selected.getState());
+        if (next == null) {
+            showError("Недопустимий перехід",
+                    "Інцидент уже є у кінцевому стані: " + selected.getState().getTitle());
+            return;
+        }
         try {
-            api.advanceIncidentState(selectedIncidentId);
+            api.changeIncidentState(selectedIncidentId, next);
             refreshIncidents();
         } catch (Exception ex) {
             showError("Помилка зміни стану інциденту", ex.getMessage());
         }
+    }
+
+    /** Визначає наступний стан життєвого циклу інциденту. */
+    private static IncidentState nextState(IncidentState current) {
+        return switch (current) {
+            case NEW -> IncidentState.CONFIRMED;
+            case CONFIRMED -> IncidentState.RESPONSE;
+            case RESPONSE -> IncidentState.CLOSED;
+            case CLOSED -> null;
+        };
     }
 
     private void handleDeleteIncident() {

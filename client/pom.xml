@@ -20,14 +20,14 @@
     </properties>
 
     <dependencies>
-        <!-- JavaFX (клієнтський графічний інтерфейс) -->
+        <!-- JavaFX (РєР»С–С”РЅС‚СЃСЊРєРёР№ РіСЂР°С„С–С‡РЅРёР№ С–РЅС‚РµСЂС„РµР№СЃ) -->
         <dependency>
             <groupId>org.openjfx</groupId>
             <artifactId>javafx-controls</artifactId>
             <version>21.0.2</version>
         </dependency>
 
-        <!-- JSON: обмін даними з сервером -->
+        <!-- JSON: РѕР±РјС–РЅ РґР°РЅРёРјРё Р· СЃРµСЂРІРµСЂРѕРј -->
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-databind</artifactId>

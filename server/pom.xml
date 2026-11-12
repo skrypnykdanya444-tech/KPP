@@ -11,7 +11,7 @@
         <relativePath>../pom.xml</relativePath>
     </parent>
 
-    <artifactId>server</artifactId>
+    <artifactId>transport-server</artifactId>
     <packaging>war</packaging>
 
     <properties>
@@ -50,7 +50,12 @@
     </dependencies>
 
     <build>
-        <finalName>server</finalName>
+        <!--
+            finalName задає ім'я WAR-файлу та, відповідно, context path у Tomcat:
+                server/target/transport-server.war  ->  http://localhost:8080/transport-server
+            Ця адреса має збігатися з BASE у клієнтському HTTP-клієнті.
+        -->
+        <finalName>transport-server</finalName>
         <plugins>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>

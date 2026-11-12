@@ -42,6 +42,9 @@ public class VehicleServlet extends HttpServlet {
 
     @Override
     protected void doPost(HttpServletRequest req, HttpServletResponse resp) throws IOException {
+        // Tomcat за замовчуванням декодує тіло POST у ISO-8859-1.
+        // Явно встановлюємо UTF-8, щоб українські літери передавалися коректно.
+        req.setCharacterEncoding("UTF-8");
         resp.setContentType("application/json;charset=UTF-8");
         String action = req.getParameter("action");
 

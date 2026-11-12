@@ -4,42 +4,46 @@
          xsi:schemaLocation="http://xmlns.jcp.org/xml/ns/javaee http://xmlns.jcp.org/xml/ns/javaee/web-app_4_0.xsd"
          version="4.0">
 
-    <display-name>Server</display-name>
+    <display-name>Transport Server</display-name>
 
+    <!-- Транспортні засоби -->
     <servlet>
         <servlet-name>VehicleServlet</servlet-name>
         <servlet-class>ua.edu.nupp.kpp.server.VehicleServlet</servlet-class>
     </servlet>
     <servlet-mapping>
         <servlet-name>VehicleServlet</servlet-name>
-        <url-pattern>/vehicle</url-pattern>
+        <url-pattern>/vehicles</url-pattern>
     </servlet-mapping>
 
+    <!-- Маршрути -->
     <servlet>
         <servlet-name>RouteServlet</servlet-name>
         <servlet-class>ua.edu.nupp.kpp.server.RouteServlet</servlet-class>
     </servlet>
     <servlet-mapping>
         <servlet-name>RouteServlet</servlet-name>
-        <url-pattern>/route</url-pattern>
+        <url-pattern>/routes</url-pattern>
     </servlet-mapping>
 
+    <!-- Інциденти -->
     <servlet>
         <servlet-name>IncidentServlet</servlet-name>
         <servlet-class>ua.edu.nupp.kpp.server.IncidentServlet</servlet-class>
     </servlet>
     <servlet-mapping>
         <servlet-name>IncidentServlet</servlet-name>
-        <url-pattern>/incident</url-pattern>
+        <url-pattern>/incidents</url-pattern>
     </servlet-mapping>
 
+    <!-- Завдання реагування -->
     <servlet>
         <servlet-name>ResponseTaskServlet</servlet-name>
         <servlet-class>ua.edu.nupp.kpp.server.ResponseTaskServlet</servlet-class>
     </servlet>
     <servlet-mapping>
         <servlet-name>ResponseTaskServlet</servlet-name>
-        <url-pattern>/response-task</url-pattern>
+        <url-pattern>/response-tasks</url-pattern>
     </servlet-mapping>
 
 </web-app>
