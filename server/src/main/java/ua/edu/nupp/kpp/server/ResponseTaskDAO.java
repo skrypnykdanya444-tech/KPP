@@ -11,7 +11,8 @@ import java.util.List;
 /**
  * DAO (Data Access Object) для завдань реагування.
  *
- * <p>Виконує безпосередній доступ до таблиці {@code response_task} через JDBC.</p>
+ * <p>Виконує безпосередній доступ до таблиці {@code response_task} через JDBC.
+ * Усі SQL-запити зосереджені саме тут.</p>
  */
 public class ResponseTaskDAO {
 
@@ -27,80 +28,74 @@ public class ResponseTaskDAO {
             "DELETE FROM response_task WHERE id = ?";
 
     /** Повертає всі завдання реагування. */
-    public List<ResponseTask> getAll() {
+    public List<ResponseTask> getAll() throws SQLException {
         List<ResponseTask> list = new ArrayList<>();
         try (Connection c = DBUtil.getConnection();
              PreparedStatement ps = c.prepareStatement(SQL_FIND_ALL);
              ResultSet rs = ps.executeQuery()) {
             while (rs.next()) {
-                list.add(mapRow(rs));
+                list.add(map(rs));
             }
-        } catch (SQLException e) {
-            throw new RuntimeException(e);
         }
         return list;
     }
 
     /** Повертає завдання реагування за ідентифікатором або {@code null}. */
-    public ResponseTask getById(long id) {
+    public ResponseTask getById(long id) throws SQLException {
         try (Connection c = DBUtil.getConnection();
              PreparedStatement ps = c.prepareStatement(SQL_FIND_BY_ID)) {
             ps.setLong(1, id);
             try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) {
-                    return mapRow(rs);
+                    return map(rs);
                 }
             }
-        } catch (SQLException e) {
-            throw new RuntimeException(e);
         }
         return null;
     }
 
     /** Додає завдання реагування і проставляє йому id, згенерований MySQL. */
-    public void add(ResponseTask task) {
+    public void add(ResponseTask task) throws SQLException {
         try (Connection c = DBUtil.getConnection();
              PreparedStatement ps = c.prepareStatement(SQL_INSERT, PreparedStatement.RETURN_GENERATED_KEYS)) {
-            ps.setLong(1, task.getIncidentId());
-            ps.setString(2, task.getDescription());
-            ps.setTimestamp(3, Timestamp.valueOf(task.getPlannedDate()));
+            bind(ps, task);
             ps.executeUpdate();
             try (ResultSet keys = ps.getGeneratedKeys()) {
                 if (keys.next()) {
                     task.setId(keys.getLong(1));
                 }
             }
-        } catch (SQLException e) {
-            throw new RuntimeException(e);
         }
     }
 
     /** Оновлює завдання реагування за наявним id. */
-    public void update(ResponseTask task) {
+    public void update(ResponseTask task) throws SQLException {
         try (Connection c = DBUtil.getConnection();
              PreparedStatement ps = c.prepareStatement(SQL_UPDATE)) {
-            ps.setLong(1, task.getIncidentId());
-            ps.setString(2, task.getDescription());
-            ps.setTimestamp(3, Timestamp.valueOf(task.getPlannedDate()));
+            bind(ps, task);
             ps.setLong(4, task.getId());
             ps.executeUpdate();
-        } catch (SQLException e) {
-            throw new RuntimeException(e);
         }
     }
 
     /** Видаляє завдання реагування за ідентифікатором. */
-    public void delete(long id) {
+    public void delete(long id) throws SQLException {
         try (Connection c = DBUtil.getConnection();
              PreparedStatement ps = c.prepareStatement(SQL_DELETE)) {
             ps.setLong(1, id);
             ps.executeUpdate();
-        } catch (SQLException e) {
-            throw new RuntimeException(e);
         }
     }
 
-    private ResponseTask mapRow(ResultSet rs) throws SQLException {
+    /** Переносить значення полів моделі в параметри PreparedStatement. */
+    private void bind(PreparedStatement ps, ResponseTask t) throws SQLException {
+        ps.setLong(1, t.getIncidentId());
+        ps.setString(2, t.getDescription());
+        ps.setTimestamp(3, Timestamp.valueOf(t.getPlannedDate()));
+    }
+
+    /** Перетворює рядок ResultSet на модель {@link ResponseTask}. */
+    private ResponseTask map(ResultSet rs) throws SQLException {
         ResponseTask t = new ResponseTask();
         t.setId(rs.getLong("id"));
         t.setIncidentId(rs.getLong("incident_id"));

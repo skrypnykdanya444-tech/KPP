@@ -10,7 +10,8 @@ import java.util.List;
 /**
  * DAO (Data Access Object) для маршрутів.
  *
- * <p>Виконує безпосередній доступ до таблиці {@code route} через JDBC.</p>
+ * <p>Виконує безпосередній доступ до таблиці {@code route} через JDBC.
+ * Усі SQL-запити зосереджені саме тут.</p>
  */
 public class RouteDAO {
 
@@ -30,38 +31,34 @@ public class RouteDAO {
             "DELETE FROM route WHERE id = ?";
 
     /** Повертає всі маршрути. */
-    public List<Route> getAll() {
+    public List<Route> getAll() throws SQLException {
         List<Route> list = new ArrayList<>();
         try (Connection c = DBUtil.getConnection();
              PreparedStatement ps = c.prepareStatement(SQL_FIND_ALL);
              ResultSet rs = ps.executeQuery()) {
             while (rs.next()) {
-                list.add(mapRow(rs));
+                list.add(map(rs));
             }
-        } catch (SQLException e) {
-            throw new RuntimeException(e);
         }
         return list;
     }
 
     /** Повертає маршрут за ідентифікатором або {@code null}. */
-    public Route getById(long id) {
+    public Route getById(long id) throws SQLException {
         try (Connection c = DBUtil.getConnection();
              PreparedStatement ps = c.prepareStatement(SQL_FIND_BY_ID)) {
             ps.setLong(1, id);
             try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) {
-                    return mapRow(rs);
+                    return map(rs);
                 }
             }
-        } catch (SQLException e) {
-            throw new RuntimeException(e);
         }
         return null;
     }
 
     /** Додає маршрут і проставляє йому id, згенерований MySQL. */
-    public void add(Route route) {
+    public void add(Route route) throws SQLException {
         try (Connection c = DBUtil.getConnection();
              PreparedStatement ps = c.prepareStatement(SQL_INSERT, PreparedStatement.RETURN_GENERATED_KEYS)) {
             ps.setLong(1, route.getVehicleId());
@@ -75,13 +72,11 @@ public class RouteDAO {
                     route.setId(keys.getLong(1));
                 }
             }
-        } catch (SQLException e) {
-            throw new RuntimeException(e);
         }
     }
 
     /** Оновлює маршрут за наявним id. */
-    public void update(Route route) {
+    public void update(Route route) throws SQLException {
         try (Connection c = DBUtil.getConnection();
              PreparedStatement ps = c.prepareStatement(SQL_UPDATE)) {
             ps.setLong(1, route.getVehicleId());
@@ -91,23 +86,20 @@ public class RouteDAO {
             ps.setDouble(5, route.getRouteImportance());
             ps.setLong(6, route.getId());
             ps.executeUpdate();
-        } catch (SQLException e) {
-            throw new RuntimeException(e);
         }
     }
 
     /** Видаляє маршрут за ідентифікатором. */
-    public void delete(long id) {
+    public void delete(long id) throws SQLException {
         try (Connection c = DBUtil.getConnection();
              PreparedStatement ps = c.prepareStatement(SQL_DELETE)) {
             ps.setLong(1, id);
             ps.executeUpdate();
-        } catch (SQLException e) {
-            throw new RuntimeException(e);
         }
     }
 
-    private Route mapRow(ResultSet rs) throws SQLException {
+    /** Перетворює рядок ResultSet на модель {@link Route}. */
+    private Route map(ResultSet rs) throws SQLException {
         Route r = new Route();
         r.setId(rs.getLong("id"));
         r.setVehicleId(rs.getLong("vehicle_id"));

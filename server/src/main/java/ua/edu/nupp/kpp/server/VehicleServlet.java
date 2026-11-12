@@ -8,6 +8,7 @@ import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
+import java.sql.SQLException;
 import java.util.List;
 
 /**
@@ -30,6 +31,10 @@ public class VehicleServlet extends HttpServlet {
         try {
             List<Vehicle> list = service.getAll();
             mapper.writeValue(resp.getWriter(), list);
+        } catch (IllegalArgumentException e) {
+            writeError(resp, 400, e.getMessage());
+        } catch (SQLException e) {
+            writeError(resp, 500, e.getMessage());
         } catch (RuntimeException e) {
             writeError(resp, 500, e.getMessage());
         }
@@ -71,6 +76,8 @@ public class VehicleServlet extends HttpServlet {
             writeError(resp, 400, "Invalid numeric parameter");
         } catch (IllegalArgumentException e) {
             writeError(resp, 400, e.getMessage());
+        } catch (SQLException e) {
+            writeError(resp, 500, e.getMessage());
         } catch (RuntimeException e) {
             writeError(resp, 500, e.getMessage());
         }

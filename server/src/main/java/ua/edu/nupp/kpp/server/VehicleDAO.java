@@ -12,6 +12,10 @@ import java.util.List;
  *
  * <p>Виконує безпосередній доступ до таблиці {@code vehicle} через JDBC.
  * З'єднання отримується з {@link DBUtil}.</p>
+ *
+ * <p>Усі SQL-запити зосереджені саме тут. DAO не містить предметної логіки:
+ * він лише передає значення полів, виконує запит і перетворює рядки
+ * результату на Java-об'єкти.</p>
  */
 public class VehicleDAO {
 
@@ -29,38 +33,34 @@ public class VehicleDAO {
             "SELECT id FROM vehicle WHERE code = ?";
 
     /** Повертає всі транспортні засоби. */
-    public List<Vehicle> getAll() {
+    public List<Vehicle> getAll() throws SQLException {
         List<Vehicle> list = new ArrayList<>();
         try (Connection c = DBUtil.getConnection();
              PreparedStatement ps = c.prepareStatement(SQL_FIND_ALL);
              ResultSet rs = ps.executeQuery()) {
             while (rs.next()) {
-                list.add(mapRow(rs));
+                list.add(map(rs));
             }
-        } catch (SQLException e) {
-            throw new RuntimeException(e);
         }
         return list;
     }
 
     /** Повертає транспортний засіб за ідентифікатором або {@code null}. */
-    public Vehicle getById(long id) {
+    public Vehicle getById(long id) throws SQLException {
         try (Connection c = DBUtil.getConnection();
              PreparedStatement ps = c.prepareStatement(SQL_FIND_BY_ID)) {
             ps.setLong(1, id);
             try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) {
-                    return mapRow(rs);
+                    return map(rs);
                 }
             }
-        } catch (SQLException e) {
-            throw new RuntimeException(e);
         }
         return null;
     }
 
     /** Додає транспортний засіб і проставляє йому id, згенерований MySQL. */
-    public void add(Vehicle vehicle) {
+    public void add(Vehicle vehicle) throws SQLException {
         try (Connection c = DBUtil.getConnection();
              PreparedStatement ps = c.prepareStatement(SQL_INSERT, PreparedStatement.RETURN_GENERATED_KEYS)) {
             ps.setString(1, vehicle.getCode());
@@ -72,13 +72,11 @@ public class VehicleDAO {
                     vehicle.setId(keys.getLong(1));
                 }
             }
-        } catch (SQLException e) {
-            throw new RuntimeException(e);
         }
     }
 
     /** Оновлює транспортний засіб за наявним id. */
-    public void update(Vehicle vehicle) {
+    public void update(Vehicle vehicle) throws SQLException {
         try (Connection c = DBUtil.getConnection();
              PreparedStatement ps = c.prepareStatement(SQL_UPDATE)) {
             ps.setString(1, vehicle.getCode());
@@ -86,36 +84,31 @@ public class VehicleDAO {
             ps.setString(3, vehicle.getCategory());
             ps.setLong(4, vehicle.getId());
             ps.executeUpdate();
-        } catch (SQLException e) {
-            throw new RuntimeException(e);
         }
     }
 
     /** Видаляє транспортний засіб за ідентифікатором. */
-    public void delete(long id) {
+    public void delete(long id) throws SQLException {
         try (Connection c = DBUtil.getConnection();
              PreparedStatement ps = c.prepareStatement(SQL_DELETE)) {
             ps.setLong(1, id);
             ps.executeUpdate();
-        } catch (SQLException e) {
-            throw new RuntimeException(e);
         }
     }
 
     /** Перевіряє, чи вже існує транспортний засіб із таким кодом. */
-    public boolean existsByCode(String code) {
+    public boolean existsByCode(String code) throws SQLException {
         try (Connection c = DBUtil.getConnection();
              PreparedStatement ps = c.prepareStatement(SQL_EXISTS_BY_CODE)) {
             ps.setString(1, code);
             try (ResultSet rs = ps.executeQuery()) {
                 return rs.next();
             }
-        } catch (SQLException e) {
-            throw new RuntimeException(e);
         }
     }
 
-    private Vehicle mapRow(ResultSet rs) throws SQLException {
+    /** Перетворює рядок ResultSet на модель {@link Vehicle}. */
+    private Vehicle map(ResultSet rs) throws SQLException {
         Vehicle v = new Vehicle();
         v.setId(rs.getLong("id"));
         v.setCode(rs.getString("code"));

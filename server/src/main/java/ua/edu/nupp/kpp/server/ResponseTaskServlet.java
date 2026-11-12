@@ -8,6 +8,7 @@ import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
+import java.sql.SQLException;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeParseException;
 import java.util.List;
@@ -31,6 +32,10 @@ public class ResponseTaskServlet extends HttpServlet {
         try {
             List<ResponseTask> list = service.getAll();
             mapper.writeValue(resp.getWriter(), list);
+        } catch (IllegalArgumentException e) {
+            writeError(resp, 400, e.getMessage());
+        } catch (SQLException e) {
+            writeError(resp, 500, e.getMessage());
         } catch (RuntimeException e) {
             writeError(resp, 500, e.getMessage());
         }
@@ -74,6 +79,8 @@ public class ResponseTaskServlet extends HttpServlet {
             writeError(resp, 400, "Невірний формат дати. Очікується YYYY-MM-DDTHH:mm");
         } catch (IllegalArgumentException e) {
             writeError(resp, 400, e.getMessage());
+        } catch (SQLException e) {
+            writeError(resp, 500, e.getMessage());
         } catch (RuntimeException e) {
             writeError(resp, 500, e.getMessage());
         }
