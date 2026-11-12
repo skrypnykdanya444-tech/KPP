@@ -25,7 +25,10 @@ logs/
 # --- Локальні конфігурації ---
 *.properties
 *.env
+.env
+application-local.properties
 local_config.json
 
+# --- Файли операційної системи ---
 .DS_Store
 Thumbs.db
