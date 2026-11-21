@@ -4,20 +4,6 @@ import java.sql.SQLException;
 import java.util.List;
 import java.util.logging.Logger;
 
-/**
- * Service-рівень для інцидентів.
- *
- * <p>Тут реалізовані предметні правила, які не належать до моделей:</p>
- * <ul>
- *   <li>валідація вхідних даних;</li>
- *   <li>перехід між станами життєвого циклу
- *       ПОВІДОМЛЕНО → ПІДТВЕРДЖЕНО → РЕАГУВАННЯ → ЗАКРИТО;</li>
- *   <li>розрахунок факторів F1, F2, F3 та інтегрального показника
- *       I = 0,40·F1 + 0,35·F2 + 0,25·F3.</li>
- * </ul>
- *
- * <p>SQL тут відсутній: Service звертається лише до DAO.</p>
- */
 public class IncidentService {
 
     private static final Logger LOG = Logger.getLogger(IncidentService.class.getName());
@@ -25,26 +11,18 @@ public class IncidentService {
     private final IncidentDAO dao = new IncidentDAO();
     private final RouteDAO routeDAO = new RouteDAO();
 
-    /** Повертає всі інциденти. */
     public List<Incident> getAll() throws SQLException {
         return dao.getAll();
     }
 
-    /** Повертає інцидент за ідентифікатором або {@code null}. */
     public Incident getById(long id) throws SQLException {
         return dao.getById(id);
     }
 
-    /**
-     * Додає інцидент.
-     *
-     * <p>Фактори та інтегральний показник обчислюються сервером
-     * за даними маршруту, тому користувач їх не вводить вручну.
-     * Новий інцидент автоматично отримує початковий стан NEW.</p>
-     *
-     * @throws IllegalArgumentException якщо вказано неіснуючий маршрут
-     */
     public void add(Incident incident) throws SQLException {
+        if (incident == null) {
+            throw new IllegalArgumentException("Інцидент не може бути null");
+        }
         if (incident.getState() == null) {
             incident.setState(IncidentState.NEW);
         }
@@ -56,25 +34,29 @@ public class IncidentService {
                 + ", I = " + incident.getSeverityIndex());
     }
 
-    /** Оновлює інцидент, перераховуючи фактори та інтегральний показник. */
     public void update(Incident incident) throws SQLException {
+        if (incident == null) {
+            throw new IllegalArgumentException("Інцидент не може бути null");
+        }
         if (incident.getId() == null) {
             throw new IllegalArgumentException("Не вказано id інциденту");
         }
         validate(incident);
         requireRoute(incident.getRouteId());
+        Incident existing = requireIncident(incident.getId());
+        IncidentState currentState = existing.getState() == null ? IncidentState.NEW : existing.getState();
+        IncidentState targetState = incident.getState() == null ? currentState : incident.getState();
+        if (targetState != currentState && !isAllowedTransition(currentState, targetState)) {
+            throw new IllegalArgumentException(
+                    "Недопустимий перехід: " + currentState.getTitle() + " → " + targetState.getTitle());
+        }
+        incident.setState(targetState);
         calculateFactors(incident);
         dao.update(incident);
         LOG.info("Оновлено інцидент з id=" + incident.getId()
                 + ", I = " + incident.getSeverityIndex());
     }
 
-    /**
-     * Виконує перехід інциденту до наступного стану життєвого циклу.
-     *
-     * @throws IllegalArgumentException якщо інцидент не знайдено
-     *                                  або перехід неможливий
-     */
     public void advanceState(long id) throws SQLException {
         Incident incident = requireIncident(id);
 
@@ -96,12 +78,6 @@ public class IncidentService {
         LOG.info("Змінено стан інциденту: " + current.name() + " -> " + next.name());
     }
 
-    /**
-     * Змінює стан інциденту на вказаний.
-     *
-     * @throws IllegalArgumentException якщо інцидент не знайдено
-     *                                  або перехід неможливий
-     */
     public void changeState(long id, IncidentState target) throws SQLException {
         Incident incident = requireIncident(id);
         if (target == null) {
@@ -127,18 +103,11 @@ public class IncidentService {
         LOG.info("Змінено стан інциденту: " + current.name() + " -> " + target.name());
     }
 
-    /** Видаляє інцидент. */
     public void delete(long id) throws SQLException {
         dao.delete(id);
         LOG.info("Видалено інцидент з id=" + id);
     }
 
-    /**
-     * Перевіряє, чи дозволений перехід між двома станами життєвого циклу.
-     *
-     * <p>Дозволено лише перехід до наступного стану. Зворотні, «перескокові»
-     * та повторні переходи заборонені.</p>
-     */
     public static boolean isAllowedTransition(IncidentState from, IncidentState to) {
         if (from == null || to == null) {
             return false;
@@ -151,7 +120,6 @@ public class IncidentService {
         };
     }
 
-    /** Знаходить інцидент або створює предметну помилку. */
     private Incident requireIncident(long id) throws SQLException {
         Incident incident = dao.getById(id);
         if (incident == null) {
@@ -161,7 +129,6 @@ public class IncidentService {
         return incident;
     }
 
-    /** Перевіряє, що маршрут, на який посилається інцидент, існує. */
     private void requireRoute(long routeId) throws SQLException {
         if (routeDAO.getById(routeId) == null) {
             LOG.warning("Маршрут з id=" + routeId + " не знайдено");
@@ -169,12 +136,6 @@ public class IncidentService {
         }
     }
 
-    /**
-     * Обчислює фактори F1, F2, F3 та інтегральний показник для інциденту.
-     *
-     * <p>F1 залежить від пасажиропотоку маршруту, F2 — від важливості маршруту,
-     * F3 — від тривалості порушення руху. Усі фактори нормуються до 0–100.</p>
-     */
     private void calculateFactors(Incident incident) throws SQLException {
         Route route = routeDAO.getById(incident.getRouteId());
         if (route == null) {
@@ -183,7 +144,7 @@ public class IncidentService {
         }
 
         double f1 = RiskCalculator.factor1(route.getPassengerFlow());
-        double f2 = RiskCalculator.factor2(route.getRouteImportance());
+        double f2 = RiskCalculator.factor2(route.getF2());
         double f3 = RiskCalculator.factor3(incident.getDisruptionDuration());
 
         incident.setF1(f1);

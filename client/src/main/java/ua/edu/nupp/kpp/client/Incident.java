@@ -1,12 +1,7 @@
 package ua.edu.nupp.kpp.client;
 
-/**
- * Клієнтська модель інциденту (DTO).
- *
- * <p>Дублює серверну сутність {@code Incident}. Фактори {@code f1},
- * {@code f2}, {@code f3} та інтегральний показник {@code severityIndex}
- * зберігаються у вигляді, у якому їх розрахував сервер.</p>
- */
+import java.time.LocalDateTime;
+
 public class Incident {
 
     private Long id;

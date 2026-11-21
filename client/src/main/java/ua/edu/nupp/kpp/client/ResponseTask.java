@@ -2,11 +2,6 @@ package ua.edu.nupp.kpp.client;
 
 import java.time.LocalDateTime;
 
-/**
- * Клієнтська модель завдання реагування (DTO).
- *
- * <p>Дублює серверну сутність {@code ResponseTask}.</p>
- */
 public class ResponseTask {
 
     private Long id;

@@ -7,30 +7,19 @@ import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * DAO (Data Access Object) для маршрутів.
- *
- * <p>Виконує безпосередній доступ до таблиці {@code route} через JDBC.
- * Усі SQL-запити зосереджені саме тут.</p>
- */
 public class RouteDAO {
 
     private static final String SQL_FIND_ALL =
-            "SELECT id, vehicle_id, route_number, stop_name, passenger_flow, route_importance "
-                    + "FROM route ORDER BY id";
+            "SELECT id, vehicle_id, route_number, stop_name, passenger_flow, f2 FROM route ORDER BY id";
     private static final String SQL_FIND_BY_ID =
-            "SELECT id, vehicle_id, route_number, stop_name, passenger_flow, route_importance "
-                    + "FROM route WHERE id = ?";
+            "SELECT id, vehicle_id, route_number, stop_name, passenger_flow, f2 FROM route WHERE id = ?";
     private static final String SQL_INSERT =
-            "INSERT INTO route (vehicle_id, route_number, stop_name, passenger_flow, route_importance) "
-                    + "VALUES (?, ?, ?, ?, ?)";
+            "INSERT INTO route (vehicle_id, route_number, stop_name, passenger_flow, f2) VALUES (?, ?, ?, ?, ?)";
     private static final String SQL_UPDATE =
-            "UPDATE route SET vehicle_id = ?, route_number = ?, stop_name = ?, "
-                    + "passenger_flow = ?, route_importance = ? WHERE id = ?";
+            "UPDATE route SET vehicle_id = ?, route_number = ?, stop_name = ?, passenger_flow = ?, f2 = ? WHERE id = ?";
     private static final String SQL_DELETE =
             "DELETE FROM route WHERE id = ?";
 
-    /** Повертає всі маршрути. */
     public List<Route> getAll() throws SQLException {
         List<Route> list = new ArrayList<>();
         try (Connection c = DBUtil.getConnection();
@@ -43,7 +32,6 @@ public class RouteDAO {
         return list;
     }
 
-    /** Повертає маршрут за ідентифікатором або {@code null}. */
     public Route getById(long id) throws SQLException {
         try (Connection c = DBUtil.getConnection();
              PreparedStatement ps = c.prepareStatement(SQL_FIND_BY_ID)) {
@@ -57,7 +45,6 @@ public class RouteDAO {
         return null;
     }
 
-    /** Додає маршрут і проставляє йому id, згенерований MySQL. */
     public void add(Route route) throws SQLException {
         try (Connection c = DBUtil.getConnection();
              PreparedStatement ps = c.prepareStatement(SQL_INSERT, PreparedStatement.RETURN_GENERATED_KEYS)) {
@@ -65,7 +52,7 @@ public class RouteDAO {
             ps.setString(2, route.getRouteNumber());
             ps.setString(3, route.getStopName());
             ps.setDouble(4, route.getPassengerFlow());
-            ps.setDouble(5, route.getRouteImportance());
+            ps.setDouble(5, route.getF2());
             ps.executeUpdate();
             try (ResultSet keys = ps.getGeneratedKeys()) {
                 if (keys.next()) {
@@ -75,7 +62,6 @@ public class RouteDAO {
         }
     }
 
-    /** Оновлює маршрут за наявним id. */
     public void update(Route route) throws SQLException {
         try (Connection c = DBUtil.getConnection();
              PreparedStatement ps = c.prepareStatement(SQL_UPDATE)) {
@@ -83,13 +69,12 @@ public class RouteDAO {
             ps.setString(2, route.getRouteNumber());
             ps.setString(3, route.getStopName());
             ps.setDouble(4, route.getPassengerFlow());
-            ps.setDouble(5, route.getRouteImportance());
+            ps.setDouble(5, route.getF2());
             ps.setLong(6, route.getId());
             ps.executeUpdate();
         }
     }
 
-    /** Видаляє маршрут за ідентифікатором. */
     public void delete(long id) throws SQLException {
         try (Connection c = DBUtil.getConnection();
              PreparedStatement ps = c.prepareStatement(SQL_DELETE)) {
@@ -98,7 +83,6 @@ public class RouteDAO {
         }
     }
 
-    /** Перетворює рядок ResultSet на модель {@link Route}. */
     private Route map(ResultSet rs) throws SQLException {
         Route r = new Route();
         r.setId(rs.getLong("id"));
@@ -106,7 +90,7 @@ public class RouteDAO {
         r.setRouteNumber(rs.getString("route_number"));
         r.setStopName(rs.getString("stop_name"));
         r.setPassengerFlow(rs.getDouble("passenger_flow"));
-        r.setRouteImportance(rs.getDouble("route_importance"));
+        r.setF2(rs.getDouble("f2"));
         return r;
     }
 }

@@ -1,11 +1,5 @@
 package ua.edu.nupp.kpp.client;
 
-/**
- * Клієнтський перелік станів життєвого циклу інциденту.
- *
- * <p>Дублює серверний {@code IncidentState}: клієнт не залежить від
- * серверного модуля.</p>
- */
 public enum IncidentState {
 
     NEW("ПОВІДОМЛЕНО"),
@@ -21,5 +15,9 @@ public enum IncidentState {
 
     public String getTitle() {
         return title;
+    }
+
+    public boolean isFinal() {
+        return this == CLOSED;
     }
 }

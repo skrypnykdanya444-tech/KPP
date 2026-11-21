@@ -4,13 +4,6 @@ import java.sql.SQLException;
 import java.util.List;
 import java.util.logging.Logger;
 
-/**
- * Service-рівень для маршрутів.
- *
- * <p>Містить правила валідації, які застосовуються перед записом у БД.
- * Маршрут пов'язаний із транспортним засобом, тому Service використовує
- * також {@link VehicleDAO} для перевірки існування пов'язаного запису.</p>
- */
 public class RouteService {
 
     private static final Logger LOG = Logger.getLogger(RouteService.class.getName());
@@ -18,22 +11,14 @@ public class RouteService {
     private final RouteDAO dao = new RouteDAO();
     private final VehicleDAO vehicleDAO = new VehicleDAO();
 
-    /** Повертає всі маршрути. */
     public List<Route> getAll() throws SQLException {
         return dao.getAll();
     }
 
-    /** Повертає маршрут за ідентифікатором або {@code null}. */
     public Route getById(long id) throws SQLException {
         return dao.getById(id);
     }
 
-    /**
-     * Додає маршрут.
-     *
-     * @throws IllegalArgumentException якщо порожні обов'язкові поля
-     *                                  або вказано неіснуючий транспортний засіб
-     */
     public void add(Route route) throws SQLException {
         validate(route);
         requireVehicle(route.getVehicleId());
@@ -41,7 +26,6 @@ public class RouteService {
         LOG.info("Додано маршрут №" + route.getRouteNumber());
     }
 
-    /** Оновлює маршрут. */
     public void update(Route route) throws SQLException {
         validate(route);
         if (route.getId() == null) {
@@ -52,13 +36,11 @@ public class RouteService {
         LOG.info("Оновлено маршрут №" + route.getRouteNumber());
     }
 
-    /** Видаляє маршрут. */
     public void delete(long id) throws SQLException {
         dao.delete(id);
         LOG.info("Видалено маршрут з id=" + id);
     }
 
-    /** Перевіряє, що транспортний засіб, на який посилається маршрут, існує. */
     private void requireVehicle(long vehicleId) throws SQLException {
         if (vehicleDAO.getById(vehicleId) == null) {
             LOG.warning("Транспортний засіб з id=" + vehicleId + " не знайдено");
@@ -83,10 +65,9 @@ public class RouteService {
         if (route.getPassengerFlow() < 0) {
             throw new IllegalArgumentException("Пасажиропотік не може бути від'ємним");
         }
-        if (route.getRouteImportance() < 0
-                || route.getRouteImportance() > RiskCalculator.MAX_ROUTE_IMPORTANCE) {
+        if (route.getF2() < 0 || route.getF2() > 100) {
             throw new IllegalArgumentException(
-                    "Оцінка важливості маршруту має бути в діапазоні 0..10");
+                    "F2 має бути в діапазоні 0..100");
         }
     }
 

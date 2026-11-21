@@ -13,11 +13,6 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeParseException;
 import java.util.List;
 
-/**
- * Servlet завдань реагування.
- *
- * <p>Відповідає на GET (список) та POST (додавання) запити.</p>
- */
 public class ResponseTaskServlet extends HttpServlet {
 
     private final ResponseTaskService service = new ResponseTaskService();
@@ -43,8 +38,6 @@ public class ResponseTaskServlet extends HttpServlet {
 
     @Override
     protected void doPost(HttpServletRequest req, HttpServletResponse resp) throws IOException {
-        // Tomcat за замовчуванням декодує тіло POST у ISO-8859-1.
-        // Явно встановлюємо UTF-8, щоб українські літери передавалися коректно.
         req.setCharacterEncoding("UTF-8");
         resp.setContentType("application/json;charset=UTF-8");
         String action = req.getParameter("action");
@@ -89,7 +82,6 @@ public class ResponseTaskServlet extends HttpServlet {
         }
     }
 
-    /** Розбирає дату у форматі ISO-8601 (YYYY-MM-DDTHH:mm). */
     private LocalDateTime parseDate(String raw) {
         if (raw == null || raw.isBlank()) {
             return null;
@@ -102,7 +94,6 @@ public class ResponseTaskServlet extends HttpServlet {
         mapper.writeValue(resp.getWriter(), new ErrorResponse(message));
     }
 
-    /** Тіло помилки у форматі JSON. */
     private static class ErrorResponse {
         private final String error;
 

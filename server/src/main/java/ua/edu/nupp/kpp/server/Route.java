@@ -1,37 +1,18 @@
 package ua.edu.nupp.kpp.server;
 
-/**
- * Маршрут (основна сутність №2).
- *
- * <p>Відповідає таблиці {@code Route}. Маршрут прив'язаний до транспортного
- * засобу та несе дві сирі оцінки, з яких Service-рівень формує фактори
- * інтегрального показника:</p>
- * <ul>
- *   <li>{@code passengerFlow} — сирий пасажиропотік маршруту (джерело фактора F1
- *       «вплив на пасажирів»);</li>
- *   <li>{@code routeImportance} — сира оцінка важливості маршруту
- *       (джерело фактора F2 «важливість маршруту»).</li>
- * </ul>
- */
 public class Route {
 
-    /** Власний первинний ключ. До запису в БД значення може бути {@code null}. */
     private Long id;
 
-    /** Зовнішній ключ на {@code Vehicle.id}. */
     private long vehicleId;
 
-    /** Номер маршруту, наприклад {@code 22}. */
     private String routeNumber;
 
-    /** Назва зупинки маршруту. */
     private String stopName;
 
-    /** Сирий пасажиропотік маршруту (джерело фактора F1). */
     private double passengerFlow;
 
-    /** Сира оцінка важливості маршруту, шкала 0..10 (джерело фактора F2). */
-    private double routeImportance;
+    private double f2;
 
     public Route() {
     }
@@ -41,13 +22,13 @@ public class Route {
                  String routeNumber,
                  String stopName,
                  double passengerFlow,
-                 double routeImportance) {
+                 double f2) {
         this.id = id;
         this.vehicleId = vehicleId;
         this.routeNumber = routeNumber;
         this.stopName = stopName;
         this.passengerFlow = passengerFlow;
-        this.routeImportance = routeImportance;
+        this.f2 = f2;
     }
 
     public Long getId() {
@@ -90,11 +71,11 @@ public class Route {
         this.passengerFlow = passengerFlow;
     }
 
-    public double getRouteImportance() {
-        return routeImportance;
+    public double getF2() {
+        return f2;
     }
 
-    public void setRouteImportance(double routeImportance) {
-        this.routeImportance = routeImportance;
+    public void setF2(double f2) {
+        this.f2 = f2;
     }
 }

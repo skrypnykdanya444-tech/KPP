@@ -2,24 +2,14 @@ package ua.edu.nupp.kpp.server;
 
 import java.time.LocalDateTime;
 
-/**
- * Завдання реагування (основна сутність №4).
- *
- * <p>Відповідає таблиці {@code ResponseTask}. Завдання формується
- * за інцидентом і описує заходи, які має виконати реагувальна бригада.</p>
- */
 public class ResponseTask {
 
-    /** Власний первинний ключ. До запису в БД значення може бути {@code null}. */
     private Long id;
 
-    /** Зовнішній ключ на {@code Incident.id}. */
     private long incidentId;
 
-    /** Опис завдання реагування. */
     private String description;
 
-    /** Запланований час виконання завдання. */
     private LocalDateTime plannedDate;
 
     public ResponseTask() {

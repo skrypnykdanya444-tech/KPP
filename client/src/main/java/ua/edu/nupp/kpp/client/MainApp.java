@@ -9,13 +9,19 @@ import javafx.geometry.Pos;
 import javafx.scene.Scene;
 import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
-import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
+import javafx.scene.control.ComboBox;
 import javafx.scene.control.ProgressBar;
+import javafx.scene.control.ScrollPane;
+import javafx.scene.control.Separator;
+import javafx.scene.control.Spinner;
+import javafx.scene.control.SpinnerValueFactory;
+import javafx.scene.control.SpinnerValueFactory.DoubleSpinnerValueFactory;
 import javafx.scene.control.Tab;
 import javafx.scene.control.TabPane;
 import javafx.scene.control.TableColumn;
 import javafx.scene.control.TableView;
+import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
 import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.scene.layout.GridPane;
@@ -26,12 +32,6 @@ import javafx.stage.Stage;
 
 import java.util.List;
 
-/**
- * Графічний клієнтський застосунок.
- *
- * <p>Клієнт працює через HTTP-маршрути сервера: Servlet -> Service -> DAO -> MySQL.
- * Прямого доступу клієнта до бази даних немає.</p>
- */
 public class MainApp extends Application {
 
     private final HttpTransportClient api = new HttpTransportClient();
@@ -40,42 +40,38 @@ public class MainApp extends Application {
             .registerModule(new JavaTimeModule())
             .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
 
-    // ========== Транспортні засоби ==========
     private final TableView<Vehicle> vehicleTable = new TableView<>();
     private final TextField vCodeField = new TextField();
     private final TextField vNameField = new TextField();
     private final TextField vCategoryField = new TextField();
-    private final ProgressBar importProgress = new ProgressBar(0);
-    private final Label importStatus = new Label("Імпорт не запущено");
+    private final ProgressBar importProgress = new ProgressBar();
+    private final Label importStatus = new Label("Модуль імпорту не активований");
     private Long selectedVehicleId = null;
 
-    // ========== Маршрути ==========
     private final TableView<Route> routeTable = new TableView<>();
     private final TextField rVehicleIdField = new TextField();
     private final TextField rNumberField = new TextField();
     private final TextField rStopField = new TextField();
-    private final TextField rFlowField = new TextField();
-    private final TextField rImportanceField = new TextField();
+    private final Spinner<Double> rFlowSpinner = new Spinner<>();
+    private final Spinner<Double> rF2Spinner = new Spinner<>();
     private Long selectedRouteId = null;
 
-    // ========== Інциденти ==========
     private final TableView<Incident> incidentTable = new TableView<>();
-    private final TextField iRouteIdField = new TextField();
     private final TextField iTypeField = new TextField();
-    private final TextField iDurationField = new TextField();
+    private final Spinner<Double> iDurationSpinner = new Spinner<>();
     private final ComboBox<IncidentState> iStateCombo = new ComboBox<>();
+    private IncidentState comboCurrentState;
     private Long selectedIncidentId = null;
 
-    // ========== Завдання реагування ==========
     private final TableView<ResponseTask> taskTable = new TableView<>();
+    private final TextArea tDescriptionArea = new TextArea();
     private final TextField tIncidentIdField = new TextField();
-    private final TextField tDescriptionField = new TextField();
     private final TextField tPlannedDateField = new TextField();
     private Long selectedTaskId = null;
 
     @Override
     public void start(Stage primaryStage) {
-        primaryStage.setTitle("Курсова робота — Транспортні засоби та дорожні інциденти");
+        primaryStage.setTitle("⚙ Адміністративний центр транспорту");
 
         TabPane tabPane = new TabPane();
         tabPane.setTabClosingPolicy(TabPane.TabClosingPolicy.UNAVAILABLE);
@@ -86,26 +82,32 @@ public class MainApp extends Application {
                 createTaskTab()
         );
 
-        Scene scene = new Scene(tabPane, 1150, 720);
+        Scene scene = new Scene(tabPane, 1350, 860);
         primaryStage.setScene(scene);
         primaryStage.show();
 
         refreshAll();
     }
 
-    // =========================================================
-    // Вкладка «Транспортні засоби» + фоновий CSV-імпорт
-    // =========================================================
     private Tab createVehicleTab() {
-        Tab tab = new Tab("Транспортні засоби");
+        VBox root = new VBox(12);
+        root.setPadding(new Insets(16));
+        root.setFillWidth(true);
 
-        TableColumn<Vehicle, Long> idCol = new TableColumn<>("ID");
+        Label title = new Label("Каталог транспортних засобів");
+        title.setPrefWidth(Double.MAX_VALUE);
+
+        TableColumn<Vehicle, Long> idCol = new TableColumn<>("№");
+        idCol.setPrefWidth(40);
         idCol.setCellValueFactory(new PropertyValueFactory<>("id"));
         TableColumn<Vehicle, String> codeCol = new TableColumn<>("Код");
+        codeCol.setPrefWidth(90);
         codeCol.setCellValueFactory(new PropertyValueFactory<>("code"));
-        TableColumn<Vehicle, String> nameCol = new TableColumn<>("Назва");
+        TableColumn<Vehicle, String> nameCol = new TableColumn<>("Модель");
+        nameCol.setPrefWidth(230);
         nameCol.setCellValueFactory(new PropertyValueFactory<>("name"));
-        TableColumn<Vehicle, String> categoryCol = new TableColumn<>("Категорія");
+        TableColumn<Vehicle, String> categoryCol = new TableColumn<>("Група");
+        categoryCol.setPrefWidth(150);
         categoryCol.setCellValueFactory(new PropertyValueFactory<>("category"));
 
         vehicleTable.getColumns().addAll(idCol, codeCol, nameCol, categoryCol);
@@ -122,71 +124,62 @@ public class MainApp extends Application {
         form.setHgap(10);
         form.setVgap(8);
         form.setPadding(new Insets(10));
-        form.add(new Label("Код:"), 0, 0);
+
+        form.add(new Label("Код транспортного засобу:"), 0, 0);
         form.add(vCodeField, 1, 0);
-        form.add(new Label("Назва:"), 0, 1);
+        form.add(new Label("Назва моделі:"), 0, 1);
         form.add(vNameField, 1, 1);
         form.add(new Label("Категорія:"), 0, 2);
         form.add(vCategoryField, 1, 2);
 
-        Button btnAdd = new Button("Додати");
-        Button btnUpdate = new Button("Змінити");
-        Button btnDelete = new Button("Видалити");
-        Button btnRefresh = new Button("Оновити");
+        Button btnAdd = new Button("Новий запис");
+        Button btnUpdate = new Button("Зберегти зміни");
+        Button btnDelete = new Button("Вилучити");
+        Button btnRefresh = new Button("Обновити список");
+        Button btnImport = new Button("Завантажити CSV реєстр");
 
         btnAdd.setOnAction(e -> handleAddVehicle());
         btnUpdate.setOnAction(e -> handleUpdateVehicle());
         btnDelete.setOnAction(e -> handleDeleteVehicle());
         btnRefresh.setOnAction(e -> refreshVehicles());
+        btnImport.setOnAction(e -> handleImportVehicles());
 
         HBox buttons = new HBox(10, btnAdd, btnUpdate, btnDelete, btnRefresh);
         buttons.setAlignment(Pos.CENTER_LEFT);
 
-        // --- Фоновий CSV-імпорт реєстру транспортних засобів ---
-        Button btnImport = new Button("Імпортувати CSV");
-        btnImport.setOnAction(e -> handleImportVehicles());
-
         importProgress.setProgress(0);
-        importProgress.setPrefWidth(260);
+        importProgress.setPrefWidth(400);
         importProgress.setVisible(false);
         importStatus.setWrapText(true);
 
-        VBox importBox = new VBox(6, btnImport, importProgress, importStatus);
-        importBox.setPadding(new Insets(10));
+        root.getChildren().addAll(title, new Separator(), vehicleTable,
+                new Separator(), buttons, new Separator(),
+                new Label("Картка запису:"), form, new Separator(), btnImport,
+                importProgress, importStatus);
 
-        VBox left = new VBox(10, vehicleTable, buttons, importBox);
-        left.setPadding(new Insets(10));
-        left.setFillWidth(true);
-        VBox.setVgrow(vehicleTable, Priority.ALWAYS);
+        ScrollPane scroll = new ScrollPane(root);
+        scroll.setFitToWidth(true);
 
-        VBox right = new VBox(10, new Label("Форма транспортного засобу"), form);
-        right.setPadding(new Insets(10));
-
-        HBox content = new HBox(10, left, right);
-        content.setFillHeight(true);
-        HBox.setHgrow(left, Priority.ALWAYS);
-
-        tab.setContent(content);
+        Tab tab = new Tab("Автопарк");
+        tab.setContent(scroll);
         return tab;
     }
 
-    /**
-     * Запускає фоновий CSV-імпорт реєстру транспортних засобів.
-     *
-     * <p>Імпорт виконується у окремому потоці через JavaFX Task, тому
-     * інтерфейс не блокується. Прогрес відображається у ProgressBar.</p>
-     */
     private void handleImportVehicles() {
         ImportVehiclesTask task = new ImportVehiclesTask(api);
 
         importProgress.setProgress(0);
         importProgress.setVisible(true);
-        importStatus.setText("Імпорт запущено...");
+        importProgress.setProgress(Double.NaN);
+        importStatus.setText("Завантаження у процесі...");
 
-        // Прогрес і статус оновлюються слухачами: на початку messageProperty()
-        // має значення null, тому пряме зв'язування Label wipes «Імпорт не запущено».
-        task.progressProperty().addListener((obs, old, val) ->
-                importProgress.setProgress(val.doubleValue()));
+        task.progressProperty().addListener((obs, old, val) -> {
+            if (Double.isNaN(val.doubleValue())) {
+                importProgress.setProgress(Double.NaN);
+            } else {
+                importProgress.setProgress(val.doubleValue());
+            }
+        });
         task.messageProperty().addListener((obs, old, val) -> {
             if (val != null) {
                 importStatus.setText(val);
@@ -203,13 +196,12 @@ public class MainApp extends Application {
         task.setOnFailed(e -> {
             importProgress.setVisible(false);
             Throwable cause = task.getException();
-            importStatus.setText("Помилка імпорту: "
+            importStatus.setText("Помилка завантаження: "
                     + (cause != null ? cause.getMessage() : "невідома помилка"));
             showError("Помилка імпорту CSV",
                     cause != null ? cause.getMessage() : "невідома помилка");
         });
 
-        // Запуск у фоновому потоці
         Thread thread = new Thread(task, "csv-import");
         thread.setDaemon(true);
         thread.start();
@@ -222,13 +214,13 @@ public class MainApp extends Application {
             clearVehicleForm();
             refreshVehicles();
         } catch (Exception ex) {
-            showError("Помилка додавання транспортного засобу", ex.getMessage());
+            showError("Помилка створення", ex.getMessage());
         }
     }
 
     private void handleUpdateVehicle() {
         if (selectedVehicleId == null) {
-            showError("Виберіть запис", "Оберіть транспортний засіб зі списку для зміни.");
+            showError("Виберіть запис", "Оберіть засіб зі списку.");
             return;
         }
         try {
@@ -238,13 +230,13 @@ public class MainApp extends Application {
             clearVehicleForm();
             refreshVehicles();
         } catch (Exception ex) {
-            showError("Помилка оновлення транспортного засобу", ex.getMessage());
+            showError("Помилка збереження", ex.getMessage());
         }
     }
 
     private void handleDeleteVehicle() {
         if (selectedVehicleId == null) {
-            showError("Виберіть запис", "Оберіть транспортний засіб зі списку для видалення.");
+            showError("Виберіть запис", "Оберіть засіб зі списку для вилучення.");
             return;
         }
         try {
@@ -253,7 +245,7 @@ public class MainApp extends Application {
             clearVehicleForm();
             refreshVehicles();
         } catch (Exception ex) {
-            showError("Помилка видалення транспортного засобу", ex.getMessage());
+            showError("Помилка вилучення", ex.getMessage());
         }
     }
 
@@ -268,47 +260,69 @@ public class MainApp extends Application {
     private void refreshVehicles() {
         try {
             List<Vehicle> list = api.getVehicles();
+            vehicleTable.getSelectionModel().clearSelection();
             vehicleTable.getItems().setAll(list);
         } catch (Exception ex) {
-            showError("Помилка завантаження транспортних засобів", ex.getMessage());
+            showError("Помилка завантаження", ex.getMessage());
         }
     }
 
-    // =========================================================
-    // Вкладка «Маршрути»
-    // =========================================================
     private Tab createRouteTab() {
-        Tab tab = new Tab("Маршрути");
+        VBox root = new VBox(12);
+        root.setPadding(new Insets(16));
+        root.setFillWidth(true);
 
-        TableColumn<Route, Long> idCol = new TableColumn<>("ID");
+        Label title = new Label("Маршрути транспортних засобів");
+        title.setPrefWidth(Double.MAX_VALUE);
+
+        TableColumn<Route, Long> idCol = new TableColumn<>("№");
+        idCol.setPrefWidth(40);
         idCol.setCellValueFactory(new PropertyValueFactory<>("id"));
-        TableColumn<Route, Long> vehicleCol = new TableColumn<>("ТЗ ID");
+        TableColumn<Route, Long> vehicleCol = new TableColumn<>("ТЗ код");
+        vehicleCol.setPrefWidth(80);
         vehicleCol.setCellValueFactory(new PropertyValueFactory<>("vehicleId"));
         TableColumn<Route, String> numberCol = new TableColumn<>("Номер");
+        numberCol.setPrefWidth(90);
         numberCol.setCellValueFactory(new PropertyValueFactory<>("routeNumber"));
         TableColumn<Route, String> stopCol = new TableColumn<>("Зупинка");
+        stopCol.setPrefWidth(260);
         stopCol.setCellValueFactory(new PropertyValueFactory<>("stopName"));
-        TableColumn<Route, Double> flowCol = new TableColumn<>("Пасажиропотік");
+        TableColumn<Route, Double> flowCol = new TableColumn<>("Пасажири");
+        flowCol.setPrefWidth(90);
         flowCol.setCellValueFactory(new PropertyValueFactory<>("passengerFlow"));
-        TableColumn<Route, Double> importanceCol = new TableColumn<>("Важливість");
-        importanceCol.setCellValueFactory(new PropertyValueFactory<>("routeImportance"));
+        TableColumn<Route, Double> f2Col = new TableColumn<>("F2");
+        f2Col.setPrefWidth(60);
+        f2Col.setCellValueFactory(new PropertyValueFactory<>("f2"));
 
-        routeTable.getColumns().addAll(idCol, vehicleCol, numberCol, stopCol, flowCol, importanceCol);
+        routeTable.getColumns().addAll(idCol, vehicleCol, numberCol, stopCol, flowCol, f2Col);
         routeTable.getSelectionModel().selectedItemProperty().addListener((obs, old, selected) -> {
             if (selected != null) {
                 selectedRouteId = selected.getId();
                 rVehicleIdField.setText(String.valueOf(selected.getVehicleId()));
                 rNumberField.setText(selected.getRouteNumber());
                 rStopField.setText(selected.getStopName());
-                rFlowField.setText(String.valueOf(selected.getPassengerFlow()));
-                rImportanceField.setText(String.valueOf(selected.getRouteImportance()));
+                ((DoubleSpinnerValueFactory) rFlowSpinner.getValueFactory()).setValue(selected.getPassengerFlow());
+                ((DoubleSpinnerValueFactory) rF2Spinner.getValueFactory()).setValue(selected.getF2());
             }
         });
 
+        DoubleSpinnerValueFactory rFlowFactory = new DoubleSpinnerValueFactory(0.0, 9999.0);
+        rFlowFactory.setValue(0.0);
+        rFlowSpinner.setValueFactory(rFlowFactory);
+        rFlowSpinner.setEditable(true);
+
+        DoubleSpinnerValueFactory rF2Factory = new DoubleSpinnerValueFactory(0.0, 100.0);
+        rF2Factory.setValue(0.0);
+        rF2Spinner.setValueFactory(rF2Factory);
+        rF2Spinner.setEditable(true);
+
+        VBox left = new VBox(8, routeTable);
+        left.setFillWidth(true);
+        VBox.setVgrow(routeTable, Priority.ALWAYS);
+
         GridPane form = new GridPane();
-        form.setHgap(10);
-        form.setVgap(8);
-        form.setPadding(new Insets(10));
+        form.setHgap(8);
+        form.setVgap(6);
         form.add(new Label("ТЗ ID:"), 0, 0);
         form.add(rVehicleIdField, 1, 0);
         form.add(new Label("Номер маршруту:"), 0, 1);
@@ -316,83 +330,65 @@ public class MainApp extends Application {
         form.add(new Label("Зупинка:"), 0, 2);
         form.add(rStopField, 1, 2);
         form.add(new Label("Пасажиропотік:"), 0, 3);
-        form.add(rFlowField, 1, 3);
-        form.add(new Label("Важливість (0..10):"), 0, 4);
-        form.add(rImportanceField, 1, 4);
+        form.add(rFlowSpinner, 1, 3);
+        form.add(new Label("F2:"), 0, 4);
+        form.add(rF2Spinner, 1, 4);
 
-        Button btnAdd = new Button("Додати");
-        Button btnUpdate = new Button("Змінити");
-        Button btnDelete = new Button("Видалити");
-        Button btnRefresh = new Button("Оновити");
-
+        Button btnAdd = new Button("Додати маршрут");
+        Button btnUpdate = new Button("Зберегти зміни");
+        Button btnDelete = new Button("Вилучити");
+        Button btnRefresh = new Button("Обновити");
         btnAdd.setOnAction(e -> handleAddRoute());
         btnUpdate.setOnAction(e -> handleUpdateRoute());
         btnDelete.setOnAction(e -> handleDeleteRoute());
         btnRefresh.setOnAction(e -> refreshRoutes());
 
-        HBox buttons = new HBox(10, btnAdd, btnUpdate, btnDelete, btnRefresh);
+        HBox buttons = new HBox(8, btnAdd, btnUpdate, btnDelete, btnRefresh);
         buttons.setAlignment(Pos.CENTER_LEFT);
 
-        VBox left = new VBox(10, routeTable, buttons);
-        left.setPadding(new Insets(10));
-        left.setFillWidth(true);
-        VBox.setVgrow(routeTable, Priority.ALWAYS);
+        root.getChildren().addAll(title, new Separator(), routeTable,
+                new Separator(), buttons, new Separator(),
+                new Label("Картка маршруту:"), form);
 
-        VBox right = new VBox(10, new Label("Форма маршруту"), form);
-        right.setPadding(new Insets(10));
-
-        HBox content = new HBox(10, left, right);
-        content.setFillHeight(true);
-        HBox.setHgrow(left, Priority.ALWAYS);
-
-        tab.setContent(content);
+        ScrollPane scroll = new ScrollPane(root);
+        scroll.setFitToWidth(true);
+        Tab tab = new Tab("Маршрути");
+        tab.setContent(scroll);
         return tab;
     }
 
     private void handleAddRoute() {
         try {
-            Route r = new Route(
-                    null,
-                    Long.parseLong(rVehicleIdField.getText()),
-                    rNumberField.getText(),
-                    rStopField.getText(),
-                    Double.parseDouble(rFlowField.getText()),
-                    Double.parseDouble(rImportanceField.getText())
-            );
+            Route r = new Route(null, Long.parseLong(rVehicleIdField.getText()), rNumberField.getText(), rStopField.getText(),
+                    rFlowSpinner.getValue(), rF2Spinner.getValue());
             api.addRoute(r);
             clearRouteForm();
             refreshRoutes();
         } catch (Exception ex) {
-            showError("Помилка додавання маршруту", ex.getMessage());
+            showError("Помилка створення маршруту", ex.getMessage());
         }
     }
 
     private void handleUpdateRoute() {
         if (selectedRouteId == null) {
-            showError("Виберіть запис", "Оберіть маршрут зі списку для зміни.");
+            showError("Виберіть запис", "Оберіть маршрут.");
             return;
         }
         try {
-            Route r = new Route(
-                    selectedRouteId,
-                    Long.parseLong(rVehicleIdField.getText()),
-                    rNumberField.getText(),
-                    rStopField.getText(),
-                    Double.parseDouble(rFlowField.getText()),
-                    Double.parseDouble(rImportanceField.getText())
-            );
+            Route r = new Route(selectedRouteId, Long.parseLong(rVehicleIdField.getText()), rNumberField.getText(), rStopField.getText(),
+                    rFlowSpinner.getValue(), rF2Spinner.getValue());
             api.updateRoute(r);
             selectedRouteId = null;
             clearRouteForm();
             refreshRoutes();
         } catch (Exception ex) {
-            showError("Помилка оновлення маршруту", ex.getMessage());
+            showError("Помилка збереження маршруту", ex.getMessage());
         }
     }
 
     private void handleDeleteRoute() {
         if (selectedRouteId == null) {
-            showError("Виберіть запис", "Оберіть маршрут зі списку для видалення.");
+            showError("Виберіть запис", "Оберіть маршрут.");
             return;
         }
         try {
@@ -401,7 +397,7 @@ public class MainApp extends Application {
             clearRouteForm();
             refreshRoutes();
         } catch (Exception ex) {
-            showError("Помилка видалення маршруту", ex.getMessage());
+            showError("Помилка вилучення маршруту", ex.getMessage());
         }
     }
 
@@ -409,186 +405,232 @@ public class MainApp extends Application {
         rVehicleIdField.clear();
         rNumberField.clear();
         rStopField.clear();
-        rFlowField.clear();
-        rImportanceField.clear();
+        ((DoubleSpinnerValueFactory) rFlowSpinner.getValueFactory()).setValue(0.0);
+        ((DoubleSpinnerValueFactory) rF2Spinner.getValueFactory()).setValue(0.0);
         routeTable.getSelectionModel().clearSelection();
         selectedRouteId = null;
     }
 
     private void refreshRoutes() {
         try {
-            List<Route> list = api.getRoutes();
-            routeTable.getItems().setAll(list);
+            routeTable.getSelectionModel().clearSelection();
+            routeTable.getItems().setAll(api.getRoutes());
         } catch (Exception ex) {
             showError("Помилка завантаження маршрутів", ex.getMessage());
         }
     }
 
-    // =========================================================
-    // Вкладка «Інциденти» — життєвий цикл та інтегральний показник
-    // =========================================================
     private Tab createIncidentTab() {
-        Tab tab = new Tab("Інциденти");
+        VBox root = new VBox(12);
+        root.setPadding(new Insets(16));
+        root.setFillWidth(true);
 
-        TableColumn<Incident, Long> idCol = new TableColumn<>("ID");
+        Label title = new Label("Транспортні інциденти");
+        title.setPrefWidth(Double.MAX_VALUE);
+
+        TableColumn<Incident, Long> idCol = new TableColumn<>("№");
+        idCol.setPrefWidth(35);
         idCol.setCellValueFactory(new PropertyValueFactory<>("id"));
-        TableColumn<Incident, Long> routeCol = new TableColumn<>("Маршрут ID");
+        TableColumn<Incident, Long> routeCol = new TableColumn<>("Маршрут");
+        routeCol.setPrefWidth(60);
         routeCol.setCellValueFactory(new PropertyValueFactory<>("routeId"));
         TableColumn<Incident, String> typeCol = new TableColumn<>("Тип");
+        typeCol.setPrefWidth(140);
         typeCol.setCellValueFactory(new PropertyValueFactory<>("incidentType"));
-        TableColumn<Incident, IncidentState> stateCol = new TableColumn<>("Стан");
+        TableColumn<Incident, String> stateCol = new TableColumn<>("Статус");
+        stateCol.setPrefWidth(80);
         stateCol.setCellValueFactory(new PropertyValueFactory<>("state"));
-        TableColumn<Incident, Double> durationCol = new TableColumn<>("Порушення, хв");
+        TableColumn<Incident, Double> durationCol = new TableColumn<>("Порушення (хв)");
+        durationCol.setPrefWidth(100);
         durationCol.setCellValueFactory(new PropertyValueFactory<>("disruptionDuration"));
         TableColumn<Incident, Double> f1Col = new TableColumn<>("F1");
+        f1Col.setPrefWidth(50);
         f1Col.setCellValueFactory(new PropertyValueFactory<>("f1"));
         TableColumn<Incident, Double> f2Col = new TableColumn<>("F2");
+        f2Col.setPrefWidth(50);
         f2Col.setCellValueFactory(new PropertyValueFactory<>("f2"));
         TableColumn<Incident, Double> f3Col = new TableColumn<>("F3");
+        f3Col.setPrefWidth(50);
         f3Col.setCellValueFactory(new PropertyValueFactory<>("f3"));
-        TableColumn<Incident, Double> indexCol = new TableColumn<>("I");
+        TableColumn<Incident, Double> indexCol = new TableColumn<>("Індекс I");
+        indexCol.setPrefWidth(70);
         indexCol.setCellValueFactory(new PropertyValueFactory<>("severityIndex"));
 
-        incidentTable.getColumns().addAll(idCol, routeCol, typeCol, stateCol, durationCol,
-                f1Col, f2Col, f3Col, indexCol);
+        incidentTable.getColumns().addAll(idCol, routeCol, typeCol, stateCol, durationCol, f1Col, f2Col, f3Col, indexCol);
         incidentTable.getSelectionModel().selectedItemProperty().addListener((obs, old, selected) -> {
             if (selected != null) {
                 selectedIncidentId = selected.getId();
-                iRouteIdField.setText(String.valueOf(selected.getRouteId()));
                 iTypeField.setText(selected.getIncidentType());
-                iDurationField.setText(String.valueOf(selected.getDisruptionDuration()));
+                ((DoubleSpinnerValueFactory) iDurationSpinner.getValueFactory()).setValue(selected.getDisruptionDuration());
+                updateStateCombo(selected.getState());
                 iStateCombo.setValue(selected.getState());
             }
         });
 
-        iStateCombo.getItems().addAll(
-                IncidentState.NEW,
-                IncidentState.CONFIRMED,
-                IncidentState.RESPONSE,
-                IncidentState.CLOSED
-        );
+        iStateCombo.setPrefWidth(320);
+        iStateCombo.setCellFactory(combo -> new javafx.scene.control.ListCell<IncidentState>() {
+            @Override
+            protected void updateItem(IncidentState item, boolean empty) {
+                super.updateItem(item, empty);
+                if (empty || item == null) {
+                    setText(null);
+                    setDisable(false);
+                } else {
+                    setText(item.getTitle());
+                    IncidentState cur = comboCurrentState;
+                    if (cur == null) {
+                        setDisable(true);
+                    } else {
+                        IncidentState nxt = nextState(cur);
+                        setDisable(item != cur && item != nxt);
+                    }
+                }
+            }
+        });
+        iStateCombo.getSelectionModel().selectedItemProperty().addListener((obs, o, n) -> {
+            if (n != null && n != IncidentState.CLOSED) {
+                Incident selected = incidentTable.getSelectionModel().getSelectedItem();
+                if (selected != null && n != selected.getState()) {
+                    IncidentState current = selected.getState() == null ? IncidentState.NEW : selected.getState();
+                    IncidentState next = nextState(current);
+                    if (n != current && n != next) {
+                        iStateCombo.getSelectionModel().select(current);
+                        return;
+                    }
+                    try {
+                        api.changeIncidentState(selectedIncidentId, n);
+                        refreshIncidents();
+                    } catch (Exception ex) {
+                        showError("Помилка переходу", ex.getMessage());
+                    }
+                }
+            }
+        });
+
+        VBox left = new VBox(8, incidentTable);
+        left.setFillWidth(true);
+        VBox.setVgrow(incidentTable, Priority.ALWAYS);
+
+        DoubleSpinnerValueFactory iDurationFactory = new DoubleSpinnerValueFactory(0.0, 1000.0);
+        iDurationFactory.setValue(0.0);
+        iDurationSpinner.setValueFactory(iDurationFactory);
+        iDurationSpinner.setEditable(true);
 
         GridPane form = new GridPane();
-        form.setHgap(10);
-        form.setVgap(8);
-        form.setPadding(new Insets(10));
-        form.add(new Label("Маршрут ID:"), 0, 0);
-        form.add(iRouteIdField, 1, 0);
-        form.add(new Label("Тип інциденту:"), 0, 1);
-        form.add(iTypeField, 1, 1);
-        form.add(new Label("Порушення руху, хв:"), 0, 2);
-        form.add(iDurationField, 1, 2);
-        form.add(new Label("Стан:"), 0, 3);
-        form.add(iStateCombo, 1, 3);
+        form.setHgap(8);
+        form.setVgap(6);
+        form.add(new Label("Тип інциденту:"), 0, 0);
+        form.add(iTypeField, 1, 0);
+        form.add(new Label("Тривалість (хв):"), 0, 1);
+        form.add(iDurationSpinner, 1, 1);
+        form.add(new Label("Статус:"), 0, 2);
+        form.add(new Label("(перемикачі нижче)"), 1, 2);
 
-        Button btnAdd = new Button("Додати");
-        Button btnUpdate = new Button("Змінити");
-        Button btnDelete = new Button("Видалити");
-        Button btnRefresh = new Button("Оновити");
-        Button btnNextState = new Button("Наступний стан");
-
+        Button btnAdd = new Button("Створити інцидент");
+        Button btnUpdate = new Button("Зберегти зміни");
+        Button btnDelete = new Button("Вилучити");
+        Button btnRefresh = new Button("Обновити");
         btnAdd.setOnAction(e -> handleAddIncident());
         btnUpdate.setOnAction(e -> handleUpdateIncident());
         btnDelete.setOnAction(e -> handleDeleteIncident());
         btnRefresh.setOnAction(e -> refreshIncidents());
-        btnNextState.setOnAction(e -> handleAdvanceIncidentState());
 
-        HBox buttons = new HBox(10, btnAdd, btnUpdate, btnDelete, btnNextState, btnRefresh);
+        HBox buttons = new HBox(8, btnAdd, btnUpdate, btnDelete, btnRefresh);
         buttons.setAlignment(Pos.CENTER_LEFT);
 
-        Label legend = new Label(
-                "Життєвий цикл: ПОВІДОМЛЕНО → ПІДТВЕРДЖЕНО → РЕАГУВАННЯ → ЗАКРИТО. "
-                        + "I = 0,40·F1 + 0,35·F2 + 0,25·F3 (усі фактори 0–100).");
-        legend.setWrapText(true);
+        root.getChildren().addAll(title, new Separator(), incidentTable,
+                new Separator(), buttons, new Separator(),
+                new Label("Картка інциденту:"), form,
+                new Separator(), new Label("Статус життєвого циклу:"), iStateCombo);
 
-        VBox left = new VBox(10, incidentTable, buttons, legend);
-        left.setPadding(new Insets(10));
-        left.setFillWidth(true);
-        VBox.setVgrow(incidentTable, Priority.ALWAYS);
-
-        VBox right = new VBox(10, new Label("Форма інциденту"), form);
-        right.setPadding(new Insets(10));
-
-        HBox content = new HBox(10, left, right);
-        content.setFillHeight(true);
-        HBox.setHgrow(left, Priority.ALWAYS);
-
-        tab.setContent(content);
+        ScrollPane scroll = new ScrollPane(root);
+        scroll.setFitToWidth(true);
+        Tab tab = new Tab("Інциденти");
+        tab.setContent(scroll);
         return tab;
+    }
+
+    private void updateStateCombo(IncidentState current) {
+        this.comboCurrentState = current;
+        iStateCombo.getItems().clear();
+        iStateCombo.getItems().addAll(IncidentState.values());
+        if (current != null && !current.isFinal()) {
+            iStateCombo.setValue(current);
+        } else {
+            iStateCombo.setValue(current);
+        }
+        iStateCombo.setDisable(current != null && current.isFinal());
     }
 
     private void handleAddIncident() {
         try {
-            Incident i = new Incident(
-                    null,
-                    Long.parseLong(iRouteIdField.getText()),
-                    iTypeField.getText(),
-                    iStateCombo.getValue() == null ? IncidentState.NEW : iStateCombo.getValue(),
-                    Double.parseDouble(iDurationField.getText()),
-                    0, 0, 0, 0
-            );
+            Incident i = new Incident(null, getRouteId(), iTypeField.getText(),
+                    IncidentState.NEW, iDurationSpinner.getValue(), 0, 0, 0, 0);
             api.addIncident(i);
             clearIncidentForm();
             refreshIncidents();
         } catch (Exception ex) {
-            showError("Помилка додавання інциденту", ex.getMessage());
+            showError("Помилка створення інциденту", ex.getMessage());
         }
+    }
+
+    private long getRouteId() {
+        for (Route r : routeTable.getItems()) {
+            return r.getId();
+        }
+        return 1;
     }
 
     private void handleUpdateIncident() {
         if (selectedIncidentId == null) {
-            showError("Виберіть запис", "Оберіть інцидент зі списку для зміни.");
+            showError("Виберіть запис", "Оберіть інцидент.");
             return;
         }
         try {
-            Incident i = new Incident(
-                    selectedIncidentId,
-                    Long.parseLong(iRouteIdField.getText()),
-                    iTypeField.getText(),
-                    iStateCombo.getValue() == null ? IncidentState.NEW : iStateCombo.getValue(),
-                    Double.parseDouble(iDurationField.getText()),
-                    0, 0, 0, 0
-            );
+            Incident i = new Incident(selectedIncidentId, getRouteId(), iTypeField.getText(),
+                    IncidentState.NEW, iDurationSpinner.getValue(), 0, 0, 0, 0);
             api.updateIncident(i);
             selectedIncidentId = null;
             clearIncidentForm();
             refreshIncidents();
         } catch (Exception ex) {
-            showError("Помилка оновлення інциденту", ex.getMessage());
+            showError("Помилка збереження інциденту", ex.getMessage());
         }
     }
 
-    /**
-     * Переводить інцидент до наступного стану життєвого циклу.
-     *
-     * <p>Клієнт лише визначає бажаний стан за життєвим циклом і передає
-     * його серверу. Допустимість переходу перевіряє Service.</p>
-     */
-    private void handleAdvanceIncidentState() {
+    private void handleDeleteIncident() {
         if (selectedIncidentId == null) {
-            showError("Виберіть запис", "Оберіть інцидент зі списку.");
-            return;
-        }
-        Incident selected = incidentTable.getSelectionModel().getSelectedItem();
-        if (selected == null || selected.getState() == null) {
-            showError("Виберіть запис", "Оберіть інцидент зі списку.");
-            return;
-        }
-        IncidentState next = nextState(selected.getState());
-        if (next == null) {
-            showError("Недопустимий перехід",
-                    "Інцидент уже є у кінцевому стані: " + selected.getState().getTitle());
+            showError("Виберіть запис", "Оберіть інцидент.");
             return;
         }
         try {
-            api.changeIncidentState(selectedIncidentId, next);
+            api.deleteIncident(selectedIncidentId);
+            selectedIncidentId = null;
+            clearIncidentForm();
             refreshIncidents();
         } catch (Exception ex) {
-            showError("Помилка зміни стану інциденту", ex.getMessage());
+            showError("Помилка вилучення інциденту", ex.getMessage());
         }
     }
 
-    /** Визначає наступний стан життєвого циклу інциденту. */
+    private void clearIncidentForm() {
+        iTypeField.clear();
+        ((DoubleSpinnerValueFactory) iDurationSpinner.getValueFactory()).setValue(0.0);
+        incidentTable.getSelectionModel().clearSelection();
+        selectedIncidentId = null;
+        updateStateCombo(null);
+    }
+
+    private void refreshIncidents() {
+        try {
+            List<Incident> list = api.getIncidents();
+            incidentTable.getSelectionModel().clearSelection();
+            incidentTable.getItems().setAll(list);
+        } catch (Exception ex) {
+            showError("Помилка завантаження інцидентів", ex.getMessage());
+        }
+    }
+
     private static IncidentState nextState(IncidentState current) {
         return switch (current) {
             case NEW -> IncidentState.CONFIRMED;
@@ -598,52 +640,25 @@ public class MainApp extends Application {
         };
     }
 
-    private void handleDeleteIncident() {
-        if (selectedIncidentId == null) {
-            showError("Виберіть запис", "Оберіть інцидент зі списку для видалення.");
-            return;
-        }
-        try {
-            api.deleteIncident(selectedIncidentId);
-            selectedIncidentId = null;
-            clearIncidentForm();
-            refreshIncidents();
-        } catch (Exception ex) {
-            showError("Помилка видалення інциденту", ex.getMessage());
-        }
-    }
-
-    private void clearIncidentForm() {
-        iRouteIdField.clear();
-        iTypeField.clear();
-        iDurationField.clear();
-        iStateCombo.setValue(null);
-        incidentTable.getSelectionModel().clearSelection();
-        selectedIncidentId = null;
-    }
-
-    private void refreshIncidents() {
-        try {
-            List<Incident> list = api.getIncidents();
-            incidentTable.getItems().setAll(list);
-        } catch (Exception ex) {
-            showError("Помилка завантаження інцидентів", ex.getMessage());
-        }
-    }
-
-    // =========================================================
-    // Вкладка «Завдання реагування»
-    // =========================================================
     private Tab createTaskTab() {
-        Tab tab = new Tab("Завдання реагування");
+        VBox root = new VBox(12);
+        root.setPadding(new Insets(16));
+        root.setFillWidth(true);
 
-        TableColumn<ResponseTask, Long> idCol = new TableColumn<>("ID");
+        Label title = new Label("Оперативні завдання");
+        title.setPrefWidth(Double.MAX_VALUE);
+
+        TableColumn<ResponseTask, Long> idCol = new TableColumn<>("№");
+        idCol.setPrefWidth(35);
         idCol.setCellValueFactory(new PropertyValueFactory<>("id"));
         TableColumn<ResponseTask, Long> incidentCol = new TableColumn<>("Інцидент ID");
+        incidentCol.setPrefWidth(80);
         incidentCol.setCellValueFactory(new PropertyValueFactory<>("incidentId"));
-        TableColumn<ResponseTask, String> descCol = new TableColumn<>("Опис");
+        TableColumn<ResponseTask, String> descCol = new TableColumn<>("Опис завдання");
+        descCol.setPrefWidth(400);
         descCol.setCellValueFactory(new PropertyValueFactory<>("description"));
-        TableColumn<ResponseTask, String> dateCol = new TableColumn<>("План");
+        TableColumn<ResponseTask, String> dateCol = new TableColumn<>("Планова дата");
+        dateCol.setPrefWidth(180);
         dateCol.setCellValueFactory(new PropertyValueFactory<>("plannedDate"));
 
         taskTable.getColumns().addAll(idCol, incidentCol, descCol, dateCol);
@@ -651,92 +666,79 @@ public class MainApp extends Application {
             if (selected != null) {
                 selectedTaskId = selected.getId();
                 tIncidentIdField.setText(String.valueOf(selected.getIncidentId()));
-                tDescriptionField.setText(selected.getDescription());
-                tPlannedDateField.setText(selected.getPlannedDate() == null
-                        ? "" : selected.getPlannedDate().toString());
+                tDescriptionArea.setText(selected.getDescription());
+                tPlannedDateField.setText(selected.getPlannedDate() == null ? "" : selected.getPlannedDate().toString());
             }
         });
 
+        tDescriptionArea.setPrefRowCount(5);
+        tDescriptionArea.setWrapText(true);
+
         GridPane form = new GridPane();
-        form.setHgap(10);
-        form.setVgap(8);
-        form.setPadding(new Insets(10));
+        form.setHgap(8);
+        form.setVgap(6);
         form.add(new Label("Інцидент ID:"), 0, 0);
         form.add(tIncidentIdField, 1, 0);
         form.add(new Label("Опис:"), 0, 1);
-        form.add(tDescriptionField, 1, 1);
-        form.add(new Label("План (YYYY-MM-DDTHH:mm):"), 0, 2);
-        form.add(tPlannedDateField, 1, 2);
+        form.add(tDescriptionArea, 1, 1, 1, 3);
+        form.add(new Label("Планова дата (ДД-ММ-РРРР ГГ:ХХ):"), 0, 4);
+        form.add(tPlannedDateField, 1, 4);
 
-        Button btnAdd = new Button("Додати");
-        Button btnUpdate = new Button("Змінити");
-        Button btnDelete = new Button("Видалити");
-        Button btnRefresh = new Button("Оновити");
-
+        Button btnAdd = new Button("Створити завдання");
+        Button btnUpdate = new Button("Зберегти зміни");
+        Button btnDelete = new Button("Вилучити");
+        Button btnRefresh = new Button("Обновити");
         btnAdd.setOnAction(e -> handleAddTask());
         btnUpdate.setOnAction(e -> handleUpdateTask());
         btnDelete.setOnAction(e -> handleDeleteTask());
         btnRefresh.setOnAction(e -> refreshTasks());
 
-        HBox buttons = new HBox(10, btnAdd, btnUpdate, btnDelete, btnRefresh);
+        HBox buttons = new HBox(8, btnAdd, btnUpdate, btnDelete, btnRefresh);
         buttons.setAlignment(Pos.CENTER_LEFT);
 
-        VBox left = new VBox(10, taskTable, buttons);
-        left.setPadding(new Insets(10));
-        left.setFillWidth(true);
-        VBox.setVgrow(taskTable, Priority.ALWAYS);
+        root.getChildren().addAll(title, new Separator(), taskTable,
+                new Separator(), buttons, new Separator(),
+                new Label("Картка завдання:"), form);
 
-        VBox right = new VBox(10, new Label("Форма завдання реагування"), form);
-        right.setPadding(new Insets(10));
-
-        HBox content = new HBox(10, left, right);
-        content.setFillHeight(true);
-        HBox.setHgrow(left, Priority.ALWAYS);
-
-        tab.setContent(content);
+        ScrollPane scroll = new ScrollPane(root);
+        scroll.setFitToWidth(true);
+        Tab tab = new Tab("Завдання реагування");
+        tab.setContent(scroll);
         return tab;
     }
 
     private void handleAddTask() {
         try {
-            ResponseTask t = new ResponseTask(
-                    null,
-                    Long.parseLong(tIncidentIdField.getText()),
-                    tDescriptionField.getText(),
-                    java.time.LocalDateTime.parse(tPlannedDateField.getText().trim())
-            );
+            ResponseTask t = new ResponseTask(null, Long.parseLong(tIncidentIdField.getText()),
+                    tDescriptionArea.getText(), java.time.LocalDateTime.parse(tPlannedDateField.getText().trim()));
             api.addResponseTask(t);
             clearTaskForm();
             refreshTasks();
         } catch (Exception ex) {
-            showError("Помилка додавання завдання", ex.getMessage());
+            showError("Помилка створення завдання", ex.getMessage());
         }
     }
 
     private void handleUpdateTask() {
         if (selectedTaskId == null) {
-            showError("Виберіть запис", "Оберіть завдання зі списку для зміни.");
+            showError("Виберіть запис", "Оберіть завдання.");
             return;
         }
         try {
-            ResponseTask t = new ResponseTask(
-                    selectedTaskId,
-                    Long.parseLong(tIncidentIdField.getText()),
-                    tDescriptionField.getText(),
-                    java.time.LocalDateTime.parse(tPlannedDateField.getText().trim())
-            );
+            ResponseTask t = new ResponseTask(selectedTaskId, Long.parseLong(tIncidentIdField.getText()),
+                    tDescriptionArea.getText(), java.time.LocalDateTime.parse(tPlannedDateField.getText().trim()));
             api.updateResponseTask(t);
             selectedTaskId = null;
             clearTaskForm();
             refreshTasks();
         } catch (Exception ex) {
-            showError("Помилка оновлення завдання", ex.getMessage());
+            showError("Помилка збереження завдання", ex.getMessage());
         }
     }
 
     private void handleDeleteTask() {
         if (selectedTaskId == null) {
-            showError("Виберіть запис", "Оберіть завдання зі списку для видалення.");
+            showError("Виберіть запис", "Оберіть завдання.");
             return;
         }
         try {
@@ -745,13 +747,13 @@ public class MainApp extends Application {
             clearTaskForm();
             refreshTasks();
         } catch (Exception ex) {
-            showError("Помилка видалення завдання", ex.getMessage());
+            showError("Помилка вилучення завдання", ex.getMessage());
         }
     }
 
     private void clearTaskForm() {
         tIncidentIdField.clear();
-        tDescriptionField.clear();
+        tDescriptionArea.clear();
         tPlannedDateField.clear();
         taskTable.getSelectionModel().clearSelection();
         selectedTaskId = null;
@@ -759,16 +761,13 @@ public class MainApp extends Application {
 
     private void refreshTasks() {
         try {
-            List<ResponseTask> list = api.getResponseTasks();
-            taskTable.getItems().setAll(list);
+            taskTable.getSelectionModel().clearSelection();
+            taskTable.getItems().setAll(api.getResponseTasks());
         } catch (Exception ex) {
-            showError("Помилка завантаження завдань реагування", ex.getMessage());
+            showError("Помилка завантаження завдань", ex.getMessage());
         }
     }
 
-    // =========================================================
-    // Спільні методи
-    // =========================================================
     private void refreshAll() {
         refreshVehicles();
         refreshRoutes();

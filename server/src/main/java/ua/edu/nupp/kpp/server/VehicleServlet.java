@@ -11,12 +11,6 @@ import java.io.IOException;
 import java.sql.SQLException;
 import java.util.List;
 
-/**
- * Servlet транспортних засобів.
- *
- * <p>Відповідає на GET (список) та POST (додавання) запити.
- * Відповіді серіалізуються у JSON за допомогою Jackson.</p>
- */
 public class VehicleServlet extends HttpServlet {
 
     private final VehicleService service = new VehicleService();
@@ -42,8 +36,6 @@ public class VehicleServlet extends HttpServlet {
 
     @Override
     protected void doPost(HttpServletRequest req, HttpServletResponse resp) throws IOException {
-        // Tomcat за замовчуванням декодує тіло POST у ISO-8859-1.
-        // Явно встановлюємо UTF-8, щоб українські літери передавалися коректно.
         req.setCharacterEncoding("UTF-8");
         resp.setContentType("application/json;charset=UTF-8");
         String action = req.getParameter("action");
@@ -91,7 +83,6 @@ public class VehicleServlet extends HttpServlet {
         mapper.writeValue(resp.getWriter(), new ErrorResponse(message));
     }
 
-    /** Тіло помилки у форматі JSON. */
     private static class ErrorResponse {
         private final String error;
 

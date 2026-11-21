@@ -1,11 +1,5 @@
 package ua.edu.nupp.kpp.client;
 
-/**
- * Клієнтська модель маршруту (DTO).
- *
- * <p>Дублює серверну сутність {@code Route}. Поля відповідають колонкам
- * таблиці {@code route}.</p>
- */
 public class Route {
 
     private Long id;
@@ -13,7 +7,7 @@ public class Route {
     private String routeNumber;
     private String stopName;
     private double passengerFlow;
-    private double routeImportance;
+    private double f2;
 
     public Route() {
     }
@@ -23,13 +17,13 @@ public class Route {
                  String routeNumber,
                  String stopName,
                  double passengerFlow,
-                 double routeImportance) {
+                 double f2) {
         this.id = id;
         this.vehicleId = vehicleId;
         this.routeNumber = routeNumber;
         this.stopName = stopName;
         this.passengerFlow = passengerFlow;
-        this.routeImportance = routeImportance;
+        this.f2 = f2;
     }
 
     public Long getId() {
@@ -72,11 +66,11 @@ public class Route {
         this.passengerFlow = passengerFlow;
     }
 
-    public double getRouteImportance() {
-        return routeImportance;
+    public double getF2() {
+        return f2;
     }
 
-    public void setRouteImportance(double routeImportance) {
-        this.routeImportance = routeImportance;
+    public void setF2(double f2) {
+        this.f2 = f2;
     }
 }

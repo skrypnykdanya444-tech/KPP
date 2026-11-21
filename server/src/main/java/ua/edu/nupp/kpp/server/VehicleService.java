@@ -4,34 +4,20 @@ import java.sql.SQLException;
 import java.util.List;
 import java.util.logging.Logger;
 
-/**
- * Service-рівень для транспортних засобів.
- *
- * <p>Містить правила валідації, які застосовуються перед записом у БД.
- * SQL тут відсутній: Service звертається лише до {@link VehicleDAO}.</p>
- */
 public class VehicleService {
 
     private static final Logger LOG = Logger.getLogger(VehicleService.class.getName());
 
     private final VehicleDAO dao = new VehicleDAO();
 
-    /** Повертає всі транспортні засоби. */
     public List<Vehicle> getAll() throws SQLException {
         return dao.getAll();
     }
 
-    /** Повертає транспортний засіб за ідентифікатором або {@code null}. */
     public Vehicle getById(long id) throws SQLException {
         return dao.getById(id);
     }
 
-    /**
-     * Додає транспортний засіб.
-     *
-     * @throws IllegalArgumentException якщо код, назва або категорія порожні
-     *                                  або код уже використовується
-     */
     public void add(Vehicle vehicle) throws SQLException {
         validate(vehicle);
         if (dao.existsByCode(vehicle.getCode())) {
@@ -43,7 +29,6 @@ public class VehicleService {
         LOG.info("Додано транспортний засіб: " + vehicle.getCode());
     }
 
-    /** Оновлює транспортний засіб. */
     public void update(Vehicle vehicle) throws SQLException {
         validate(vehicle);
         if (vehicle.getId() == null) {
@@ -53,7 +38,6 @@ public class VehicleService {
         LOG.info("Оновлено транспортний засіб: " + vehicle.getCode());
     }
 
-    /** Видаляє транспортний засіб. */
     public void delete(long id) throws SQLException {
         dao.delete(id);
         LOG.info("Видалено транспортний засіб з id=" + id);
